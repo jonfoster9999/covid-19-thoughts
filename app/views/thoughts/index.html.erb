@@ -1,0 +1,177 @@
+<div style="position: fixed; top: 0px; left: 0px; right: 0px; height: 140px; background-color: black; color: white">
+  <h1 id='covid-thoughts'>Covid-19 Thoughts</h1>
+  <p style="text-align: center; padding-left: 25%; padding-right: 25%; font-size: 1em;">Just a steady stream of thoughts, experiences, links, and ideas about the Coronavirus. Post anything you see fit.</p>
+
+</div>
+
+<div style="padding-left: 10%; padding-right: 10%; margin-top: 140px;">
+  <form action="/thoughts" method="post">
+  <ul class="form-style-1">
+    <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token%>">
+    <li>
+        <label>Name <span class="required">*</span></label>
+        <input type="text" name="thought[name]" class="field-long" />
+    </li>
+    <li>
+        <label>Email <span class="required">*</span></label>
+        <input type="email" name="thought[email]" class="field-long" />
+    </li>
+      <li>
+          <label>Your Message <span class="required">*</span></label>
+          <textarea name="thought[body]" id="field5" class="field-long field-textarea"></textarea>
+      </li>
+      <li>
+          <input type="submit" value="Submit" />
+      </li>
+  </ul>
+  </form>
+</div>
+
+
+
+
+<br>
+<div id="card-holder">
+
+<% @thoughts.each do |thought| %>
+  <div class="card">
+    <div class="container">
+      <h4 style="margin-bottom: 3px;"><b><%= thought.name %></b> <span style="font-weight: 100; font-size: .8em;">(<%= thought.email %>)</span></h4>
+      <span style="font-size: .6em;"><%= thought.created_at %></span>
+      <p><%= simple_format(thought.body) %></p>
+      <span id="thought_<%= thought.id%>" style="font-size: .8em;">Comments (<%= thought.comments.size %>)<span>
+      <i id="chevron_<%=thought.id%>" style="font-size: .5em;" class="thought_comments fa fa-chevron-right"></i>
+      <div id="comment_block_<%= thought.id %>" class="comment_block">
+        <hr>
+        <br>
+        <div id="comments_for_thought_<%=thought.id %>">
+          <% thought.comments.each do |comment| %>
+            <div class="card comment-card">
+              <div class="container">
+                <h4 style="margin-bottom: 3px;"><b><%= comment.name %></b> <span style="font-weight: 100; font-size: .8em;">(<%= comment.email %>)</span></h4>
+                <span style="font-size: .6em;"><%= comment.created_at %></span>
+                <p><%= simple_format(comment.body) %></p>
+              </div>
+            </div>
+          <% end %>
+        </div>
+        <br>
+        <hr>
+        <br>
+        <label>Leave a comment: </label>
+        <form class="comments" action="/thoughts/<%= thought.id%>/comments">
+        <ul class="form-style-2">
+          <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token%>">
+          <li>
+              <label>Name <span class="required">*</span></label><br>
+              <input type="text" name="comment[name]" class="field-long" />
+          </li>
+          <li>
+              <label>Email <span class="required">*</span></label><br>
+              <input type="email" name="comment[email]" class="field-long" />
+          </li>
+            <li>
+                <label>Your Message <span class="required">*</span></label><br>
+                <textarea name="comment[body]" id="field5" class="field-long field-textarea"></textarea>
+            </li>
+            <li>
+                <input type="submit" value="Submit" />
+            </li>
+        </ul>
+        </form>
+      </div>
+    </div>
+  </div>
+  <br>
+<% end %>
+
+</div>
+
+<footer style="position: fixed; bottom: 0px; left: 0px; right: 0px;">
+  <div class="apple_pagination">
+    <%= will_paginate(@thoughts) %>
+  </div>
+</footer>
+
+
+<script type="text/javascript">
+   $('.comment_block').hide()
+   $(".thought_comments").click(function(e) {
+     let id = e.target.id.replace('chevron_', '')
+     let comment_block_id = `comment_block_${id}`;
+     let chevron_id = `chevron_${id}`;
+     let chevron = $(`#${chevron_id}`);
+     let existingChevronClass = chevron.attr('class');
+     let newChevronClass = existingChevronClass.indexOf('down') > -1 ? 'thought_comments fa fa-chevron-right' : 'thought_comments fa fa-chevron-down'
+     chevron.attr('class', newChevronClass)
+     $(`#${comment_block_id}`).toggle();
+  });
+
+  $("form.comments").submit(function(e) {
+    e.preventDefault();
+    e.returnValue = false;
+    let action = $(this).attr('action')
+    let thought_id = action.split('/')[2];
+    console.log('im getting', `#comments_for_thought_${thought_id}`)
+    let comments_for_thought_block = $(`#comments_for_thought_${thought_id}`)
+    console.log('action is', action)
+    console.log('subbmitted a form', )
+
+    $.ajax({
+      type: "POST",
+      url: action,
+      data: $(this).serialize(),
+      success: function(data) {
+        console.log('success!', data)
+        let html = buildCommentsHTML(data)
+        comments_for_thought_block.html(html);
+      },
+      dataType: 'json'
+    });
+
+  });
+
+  function buildCommentsHTML(data) {
+    console.log('data is', data);
+    let html = '';
+    let comments = data['comments'];
+
+
+    for (let i = 0; i < comments.length; i++) {
+      let currentComment = comments[i];
+      html += buildCommentHTML(currentComment);
+    }
+    console.log('html was', html);
+
+    return html;
+  }
+
+  function simpleFormat(str) {
+    str = str.replace(/\r\n?/, "\n");
+    str = $.trim(str);
+    if (str.length > 0) {
+      str = str.replace(/\n\n+/g, '</p><p>');
+      str = str.replace(/\n/g, '<br />');
+      str = '<p>' + str + '</p>';
+    }
+    return str;
+  }
+
+  function buildCommentHTML(comment) {
+    let html = '<div class="card comment-card">';
+    html += '<div class="container">';
+    html += '<h4 style="margin-bottom: 3px;"><b>';
+    html += comment.name;
+    html += '</b> <span style="font-weight: 100; font-size: .8em;">(';
+    html += comment.email;
+    html += '</span></h4>';
+    html += '<span style="font-size: .6em;">'
+    html += comment.created_at;
+    html += '</span>';
+    html += '<p>'
+    html += simpleFormat(comment.body);
+    html += '</p></div></div>'
+
+    return html;
+  }
+</script>
